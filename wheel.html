@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spin the Wheel</title>
+    <!-- Bootstrap CSS (CDN) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+
+        .ads-placeholder {
+            background: #ced4da;
+            height: 50px;
+            color: #495057;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .wheel-container {
+            position: relative;
+            margin: 0 auto;
+            /* Center the container itself if needed */
+            width: 400px;
+            /* Match canvas width */
+            height: 400px;
+            /* Match canvas height */
+        }
+
+        #wheelCanvas {
+            width: 400px;
+            height: 400px;
+            border: 6px solid #333;
+            border-radius: 50%;
+            background-color: #ffffff;
+        }
+
+        /* Pointer at the top center, pointing downward */
+        .pointer {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 15px solid transparent;
+            border-right: 15px solid transparent;
+            border-bottom: 30px solid #333;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container py-4">
+        <!-- Logo + AdSense placeholder -->
+        <div class="row mb-4">
+            <div class="col text-center">
+                <!-- Replace with your actual logo if desired -->
+                <img src="assets/lynn.jpg" alt="Logo" style="max-height: 60px;">
+                <div class="ads-placeholder mt-3">
+                    AdSense Placeholder
+                </div>
+            </div>
+        </div>
+
+        <!-- Main card for the wheel -->
+        <div class="row justify-content-center">
+            <div class="col-12 col-md-8">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <!-- Question headline (outside the wheel container) -->
+                        <h4 id="questionHeadline" class="mb-4 text-center"></h4>
+
+                        <!-- Wheel container with pointer & canvas -->
+                        <div class="wheel-container">
+                            <div class="pointer"></div>
+                            <canvas id="wheelCanvas" width="400" height="400"></canvas>
+                        </div>
+
+                        <!-- Spin button, centered below the wheel -->
+                        <div class="text-center mt-4">
+                            <button id="spinBtn" class="btn btn-success btn-lg">
+                                Spin
+                            </button>
+                        </div>
+
+                        <!-- Result text, also centered -->
+                        <div id="result" class="fs-4 fw-bold mt-3 text-primary text-center"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        // ---------------------------
+        // 1) Retrieve data from localStorage
+        // ---------------------------
+        const question = localStorage.getItem('wheelQuestion') || 'Your Question';
+        const answersStr = localStorage.getItem('wheelAnswers') || '';
+        let entries = answersStr
+            .split(',')
+            .map((ans) => ans.trim())
+            .filter((ans) => ans !== '');
+
+        // Display question
+        const questionHeadline = document.getElementById('questionHeadline');
+        questionHeadline.textContent = question;
+
+        // ---------------------------
+        // 2) Wheel & canvas setup
+        // ---------------------------
+        const canvas = document.getElementById('wheelCanvas');
+        const ctx = canvas.getContext('2d');
+        const spinBtn = document.getElementById('spinBtn');
+        const resultDiv = document.getElementById('result');
+
+        let currentRotation = 0;
+        let isSpinning = false;
+
+        // ---------------------------
+        // 3) Draw the wheel
+        // ---------------------------
+        function drawWheel(rotation) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const numEntries = entries.length;
+            if (numEntries === 0) {
+                return;
+            }
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const outerRadius = Math.min(centerX, centerY) - 10;
+            const arcSize = (2 * Math.PI) / numEntries;
+
+            for (let i = 0; i < numEntries; i++) {
+                // Alternate colors
+                ctx.fillStyle = i % 2 === 0 ? '#f86c6b' : '#6bc5f8';
+                const startAngle = i * arcSize + rotation;
+                const endAngle = startAngle + arcSize;
+
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.arc(centerX, centerY, outerRadius, startAngle, endAngle, false);
+                ctx.closePath();
+                ctx.fill();
+
+                // Label text
+                ctx.save();
+                ctx.translate(centerX, centerY);
+                ctx.rotate(startAngle + arcSize / 2);
+                ctx.textAlign = 'right';
+                ctx.fillStyle = '#000';
+                ctx.font = '16px sans-serif';
+                ctx.fillText(entries[i], outerRadius - 10, 5);
+                ctx.restore();
+            }
+        }
+
+        // ---------------------------
+        // 4) Spin logic
+        // ---------------------------
+        function easeOut(t) {
+            return t * (2 - t);
+        }
+
+        function spin() {
+            if (entries.length === 0) {
+                alert('No answers found! Please go back and add some answers.');
+                return;
+            }
+            if (isSpinning) return;
+            isSpinning = true;
+            resultDiv.textContent = '';
+
+            const spinDuration = 4000; // 4 seconds
+            const startTime = performance.now();
+            // 3-5 full spins + random offset
+            const randomSpins = Math.floor(Math.random() * 3) + 3;
+            const targetRotation = 2 * Math.PI * randomSpins + Math.random() * 2 * Math.PI;
+
+            function animate(time) {
+                const elapsed = time - startTime;
+                const progress = Math.min(elapsed / spinDuration, 1);
+                const easedProgress = easeOut(progress);
+                currentRotation = easedProgress * targetRotation;
+                drawWheel(currentRotation);
+
+                if (progress < 1) {
+                    requestAnimationFrame(animate);
+                } else {
+                    isSpinning = false;
+                    showResult();
+                }
+            }
+            requestAnimationFrame(animate);
+        }
+
+        // ---------------------------
+        // 5) Determine and show the result
+        // ---------------------------
+        function showResult() {
+            const finalRotation = currentRotation % (2 * Math.PI);
+            const arcSize = (2 * Math.PI) / entries.length;
+            // pointer at top => -90° => subtract π/2
+            const pointerAngle = (2 * Math.PI + (finalRotation - Math.PI / 2)) % (2 * Math.PI);
+            const winningIndex = Math.floor(pointerAngle / arcSize);
+            const winner = entries[winningIndex];
+            resultDiv.textContent = 'Result: ' + winner;
+        }
+
+        // ---------------------------
+        // 6) Initial draw & events
+        // ---------------------------
+        drawWheel(0);
+        spinBtn.addEventListener('click', spin);
+    </script>
+</body>
+
+</html>
